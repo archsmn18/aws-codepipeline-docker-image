@@ -1,0 +1,31 @@
+version: 0.2
+
+env:
+  variables:
+    IMAGE_NAME: "archisman9306/hello-nginx"
+  secrets-manager:
+    DOCKERHUB_USERNAME: "dockerhub/credentials:archisman9306"
+    DOCKERHUB_PASSWORD: "dockerhub/credentials:dockerhub202508"
+
+phases:
+  pre_build:
+    commands:
+      - echo "Build started on $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      - export BUILD_TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+      - echo "$BUILD_TIMESTAMP" | tee build_time.txt
+      - echo "Logging in to Docker Hub…"
+      - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      - COMMIT_HASH=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c1-7)
+      - IMAGE_TAG=${COMMIT_HASH:-latest}
+  build:
+    commands:
+      - sed -i "s|\${BUILD_TIMESTAMP}|$BUILD_TIMESTAMP|g" index.html
+      - docker build -t "$IMAGE_NAME:$IMAGE_TAG" .
+      - docker tag "$IMAGE_NAME:$IMAGE_TAG" "$IMAGE_NAME:latest"
+  post_build:
+    commands:
+      - docker push "$IMAGE_NAME:$IMAGE_TAG"
+      - docker push "$IMAGE_NAME:latest"
+artifacts:
+  files:
+    - '**/*'
